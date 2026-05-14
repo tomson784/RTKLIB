@@ -341,6 +341,22 @@ static DWORD WINAPI serialthread(void *arg)
 }
 #endif /* WIN32 */
 
+/* find first ':' in s that is followed by a valid serial baud rate ----------*/
+static const char *find_baud_sep(const char *s)
+{
+    static const int valid[]={
+        300,600,1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,
+        921600,0
+    };
+    const char *p=s;
+    while ((p=strchr(p,':'))!=NULL) {
+        int br=0,i;
+        if (sscanf(p+1,"%d",&br)==1)
+            for (i=0;valid[i];i++) if (valid[i]==br) return p;
+        p++;
+    }
+    return NULL;
+}
 /* open serial ---------------------------------------------------------------*/
 static serial_t *openserial(const char *path, int mode, char *msg)
 {
@@ -368,7 +384,18 @@ static serial_t *openserial(const char *path, int mode, char *msg)
     
     if (!(serial=(serial_t *)calloc(1,sizeof(serial_t)))) return NULL;
     
-    if ((p=strchr(path,':'))) {
+    if (path[0]=='/') {
+        /* absolute path (e.g. /dev/serial/by-id/... or /dev/serial/by-path/...)
+         * Path components may themselves contain ':', so locate the baud-rate
+         * separator by finding the first ':' followed by a valid baud rate. */
+        const char *sep=find_baud_sep(path);
+        if (sep) {
+            strncpy(port,path,sep-path); port[sep-path]='\0';
+            sscanf(sep,":%d:%d:%c:%d:%s",&brate,&bsize,&parity,&stopb,fctr);
+        }
+        else { strncpy(port,path,sizeof(port)-1); port[sizeof(port)-1]='\0'; }
+    }
+    else if ((p=strchr(path,':'))) {
         strncpy(port,path,p-path); port[p-path]='\0';
         sscanf(p,":%d:%d:%c:%d:%s",&brate,&bsize,&parity,&stopb,fctr);
     }
@@ -441,7 +468,10 @@ static serial_t *openserial(const char *path, int mode, char *msg)
     }
     sprintf(msg,"%s",port);
 #else
-    sprintf(dev,"/dev/%.*s",(int)sizeof(port)-6,port);
+    if (port[0]=='/')
+        { strncpy(dev,port,sizeof(dev)-1); dev[sizeof(dev)-1]='\0'; }
+    else
+        sprintf(dev,"/dev/%.*s",(int)(sizeof(dev)-6),port);
     
     if ((mode&STR_MODE_R)&&(mode&STR_MODE_W)) rw=O_RDWR;
     else if (mode&STR_MODE_R) rw=O_RDONLY;
