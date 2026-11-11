@@ -7,7 +7,102 @@
 
 ---
 
-## 1. シリアルポート絶対パス対応パッチ
+## 1. str2str のインストール
+
+### 動作確認環境
+
+- Ubuntu 24.04
+- gcc 13.3.0
+- GNU make
+
+### 必要なパッケージ
+
+```bash
+sudo apt update
+sudo apt install -y build-essential git
+```
+
+`str2str` は標準 C ライブラリと `libm` / `librt` / `libpthread` のみに依存するため、
+追加のライブラリは不要です。
+
+### ソースコードの取得
+
+```bash
+git clone https://github.com/tomson784/RTKLIB.git
+cd RTKLIB
+git checkout rtklib_2.4.3
+```
+
+### ビルド
+
+```bash
+cd app/consapp/str2str/gcc
+make
+```
+
+ビルドに成功すると、同じディレクトリに実行ファイル `str2str` が生成されます。
+ソースを修正した後などにビルドし直す場合は `make clean` してから `make` します。
+
+`makefile` の `OPTION` で有効な機能を指定しています（デフォルト値）。
+
+| オプション | 内容 |
+|---|---|
+| `-DENAGLO -DENAGAL -DENAQZS -DENACMP -DENAIRN` | GLONASS / Galileo / QZSS / BeiDou / NavIC を有効化 |
+| `-DTRACE` | トレースログ出力（`-t` オプション）を有効化 |
+| `-DNFREQ=5 -DNEXOBS=3` | 周波数数・拡張観測コード数 |
+| `-DSVR_REUSEADDR` | TCP サーバのポート再利用を許可 |
+
+### インストール
+
+```bash
+sudo make install
+```
+
+`/usr/local/bin/str2str` にコピーされます。インストール先を変えたい場合は
+`BINDIR` を指定します。
+
+```bash
+# 例: ユーザのホーム配下にインストール（sudo 不要）
+mkdir -p ~/.local/bin
+make install BINDIR=~/.local/bin
+```
+
+`~/.local/bin` に PATH が通っていない場合は `~/.bashrc` に以下を追記します。
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### 動作確認
+
+```bash
+str2str -h
+```
+
+`usage: str2str [-in stream] [-out stream [-out stream...]] [options]` から始まる
+ヘルプが表示されればインストール完了です。
+
+### シリアルポートの権限設定
+
+受信機を USB/シリアルで接続して使う場合、一般ユーザで `/dev/ttyACM*` や
+`/dev/ttyUSB*` を開くには `dialout` グループへの所属が必要です。
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+設定後、一度ログアウトして再ログインしてください。`groups` コマンドで
+`dialout` が含まれていることを確認できます。
+
+### アンインストール
+
+```bash
+sudo rm /usr/local/bin/str2str
+```
+
+---
+
+## 2. シリアルポート絶対パス対応パッチ
 
 ### 概要
 
@@ -114,10 +209,7 @@ else
 
 ### ビルド方法
 
-```bash
-cd app/consapp/str2str/gcc
-make
-```
+[1. str2str のインストール](#1-str2str-のインストール) を参照してください。
 
 ### str2str の使い方
 
